@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# environment / secrets
+.env
+.env.*
+!.env.example
+
+# stored notes (runtime data) — keep the folder, ignore contents
+note-store/*
+!note-store/.gitkeep
+
+# logs & process managers
+*.log
+logs/
+.pm2/
+
+# generated HTML reports
+.devlens/html/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

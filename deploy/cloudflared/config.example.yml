@@ -1,0 +1,21 @@
+# Named Cloudflare Tunnel config (persistent hostname).
+# Copy to config.yml and fill in your tunnel id + hostname.
+#
+# One-time setup:
+#   cloudflared tunnel login
+#   cloudflared tunnel create notey
+#   cloudflared tunnel route dns notey notey.example.com
+# Run:
+#   cloudflared tunnel --config deploy/cloudflared/config.yml run
+#
+# For a throwaway public URL instead (no account/DNS needed), just run:
+#   cloudflared tunnel --url http://localhost:8080
+
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /home/USER/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: notey.example.com
+    service: http://localhost:8080
+  # Catch-all — required as the last rule.
+  - service: http_status:404

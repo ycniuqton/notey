@@ -1,0 +1,30 @@
+# Fly.io deploy config.  Deploy with:
+#   fly launch --no-deploy   (first time, to create the app)
+#   fly volumes create notey_data --size 1
+#   fly deploy
+app = "notey"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NOTEY_HOST = "0.0.0.0"
+  NOTEY_PORT = "8080"
+  NOTEY_STORE = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+# Persistent notes. Keep a single machine per volume (filesystem-backed store).
+[[mounts]]
+  source = "notey_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

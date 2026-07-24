@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax check all sources
+        run: |
+          find backend/src frontend -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
+
+      - name: Smoke test (start, health, save, stop)
+        run: |
+          NOTEY_PORT=8099 NOTEY_STORE="$(mktemp -d)" node backend/src/server.js &
+          PID=$!
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8099/ >/dev/null && break
+            sleep 0.25
+          done
+          echo "Health:" && curl -sf -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8099/
+          echo "Save:"   && curl -sf -X PUT http://127.0.0.1:8099/api/note/ci/test \
+            -H 'Content-Type: application/json' -d '{"content":"ci"}'
+          echo "Read:"   && curl -sf http://127.0.0.1:8099/api/note/ci/test
+          kill "$PID"

@@ -1,0 +1,26 @@
+/* Design tokens + base styles ported from Notepad Editor.dc.html */
+html, body { margin: 0; height: 100%; overflow-x: hidden; }
+#root { height: 100%; }
+* { -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --np-bg: #161826; --np-surface: #1c1e2c; --np-text: #e9e9ed; --np-muted: #9397ab;
+  --np-faint: #75798c; --np-line: #2b2e3c; --np-accent: #9184d9; --np-accent-soft: #423a6a;
+  --np-glow: rgba(145,132,217,0.16);
+}
+[data-np="light"] {
+  --np-bg: #f3f5fe; --np-surface: #e9ecfa; --np-text: #292b31; --np-muted: #75798c;
+  --np-faint: #9397ab; --np-line: #d8dcee; --np-accent: #5d5294; --np-accent-soft: #d2cefd;
+  --np-glow: rgba(93,82,148,0.10);
+}
+
+::selection { background: var(--np-accent-soft); }
+a { color: var(--np-accent); text-decoration: none; }
+a:hover { color: var(--np-text); }
+textarea::placeholder { color: var(--np-faint); }
+
+@keyframes np-pulse { 0%,100% { opacity: .35; transform: scale(.85);} 50% { opacity: 1; transform: scale(1);} }
+
+.np-btn { transition: color .15s, border-color .15s, background .15s; }
+.np-icon-btn:hover { background: var(--np-surface); color: var(--np-text); }
+.np-copy:hover { color: var(--np-accent); border-color: var(--np-accent); }

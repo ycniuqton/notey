@@ -1,0 +1,26 @@
+{
+  "name": "notey",
+  "version": "0.1.0",
+  "description": "A minimalist notepad where the URL path is the note. Zero-dependency Node backend + static frontend.",
+  "license": "MIT",
+  "type": "module",
+  "main": "backend/src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "dev": "node --watch backend/src/server.js",
+    "setup": "sh scripts/setup.sh",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop notey",
+    "pm2:logs": "pm2 logs notey",
+    "docker:build": "docker build -t notey .",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "tunnel": "cloudflared tunnel --url http://localhost:8080"
+  },
+  "devDependencies": {
+    "@ycniuqton/devlens": "^0.1.29"
+  }
+}

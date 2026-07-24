@@ -1,0 +1,35 @@
+# notey — run with:  docker compose up -d --build
+# Expose publicly (no port-forward) with a Cloudflare Tunnel:
+#   CLOUDFLARE_TUNNEL_TOKEN=... docker compose --profile tunnel up -d
+services:
+  notey:
+    build: .
+    image: notey:latest
+    container_name: notey
+    restart: unless-stopped
+    ports:
+      - "${NOTEY_PORT:-8080}:8080"
+    environment:
+      NOTEY_HOST: "0.0.0.0"
+      NOTEY_PORT: "8080"
+      NOTEY_STORE: "/data"
+    volumes:
+      - notey-data:/data
+
+  # Optional: publish notey to a public hostname via Cloudflare Tunnel.
+  # In the Zero Trust dashboard, point the tunnel's public hostname at
+  # the service URL  http://notey:8080  (this container, on the compose network).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: notey-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
+    depends_on:
+      - notey
+    profiles:
+      - tunnel
+
+volumes:
+  notey-data:
