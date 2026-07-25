@@ -28,6 +28,12 @@ State legend: [ ] todo · [~] in progress · [x] done
 ## Docs
 - [x] 15. Rewrite README.md (open-source + deployment focused, per-platform steps)
 
+## Post-deploy improvements (from the first live deploy)
+- [x] 19. Fix ecosystem.config.cjs so shell env (NOTEY_PORT/HOST/STORE) wins over defaults
+- [x] 20. scripts/redeploy.sh (pull + rebuild + recreate; NETWORK/PORT_PUBLISH options)
+- [x] 21. README §10 "behind an existing reverse proxy" + "Updating a deployment"
+- [x] 22. Design doc: field-verified shared-proxy pattern (Caddy + Cloudflare Flexible)
+
 ## Verify
 - [x] 16. node --check / bash -n on all new scripts; YAML sanity
 - [x] 17. setup.sh node mode boots server on an alt port and answers 200

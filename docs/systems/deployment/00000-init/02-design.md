@@ -94,6 +94,25 @@ scaling: ONE instance per store.
 └─ multiple containers/replicas → same problem → NOT supported (single replica only)
 ```
 
+## Shared server / existing reverse proxy (field-verified)
+Real deployments often land on a box that ALREADY has a reverse proxy on 80/443 fronting
+other apps. Binding notey to 80 is wrong there. Verified pattern (deployed behind an
+existing Caddy that also fronts Chatwoot):
+```
+build image on host → run notey container on the PROXY's docker network
+  (no published host port; proxy reaches it by container name)
+└─ append a vhost to the proxy config, keyed by hostname:
+     http://notey.example.com { reverse_proxy notey:8080 }
+   ├─ back up the config first
+   ├─ validate  → invalid → restore backup, do NOT reload  (protects other sites)
+   └─ valid     → graceful reload (no restart; existing sites keep serving)
+└─ Cloudflare: proxied A record + SSL mode "Flexible"  (origin stays HTTP :80)
+   └─ http:// (not https://) avoids a redirect loop with Flexible
+notes: proxy must forward client IP (X-Forwarded-For / CF-Connecting-IP) or notey's
+       rate limits key on the proxy IP. Update flow: scripts/redeploy.sh with
+       NOTEY_NETWORK=<proxy_net>.
+```
+
 ## Serverless extension point (why Vercel is not shipped)
 ```
 Vercel/Workers request → new isolate, ephemeral/read-only FS

@@ -190,6 +190,59 @@ Now `https://notey.space` serves notey with a valid certificate that renews itse
 ~60 days. Because the proxy forwards `X-Forwarded-Proto` and `X-Forwarded-For`, notey's
 rate limits still see real client IPs. Config template: `deploy/nginx/notey.conf`.
 
+## 10 · Behind an existing reverse proxy (shared server)
+
+If the server already runs a reverse proxy (Caddy, nginx, Traefik) fronting other apps
+on 80/443 — common on a shared box — **do not** bind notey to 80. Run it as a container
+on the proxy's network and add a virtual host. Example with **Caddy** (its `reverse_proxy`
+reaches containers by name):
+
+1. Build + run notey on the proxy's Docker network, no published host port:
+   ```bash
+   docker build -t notey:latest /opt/notey
+   docker run -d --name notey --restart unless-stopped \
+     --network <proxy_network> -v notey-data:/data notey:latest
+   # find the network:
+   #   docker inspect <proxy-container> \
+   #     --format '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}} {{end}}'
+   ```
+2. Add a site to the Caddyfile (back it up first), validate, then graceful reload:
+   ```caddyfile
+   http://notey.example.com {
+       encode zstd gzip
+       reverse_proxy notey:8080
+   }
+   ```
+   ```bash
+   cp Caddyfile Caddyfile.bak
+   docker exec <caddy> caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+   docker exec <caddy> caddy reload   --config /etc/caddy/Caddyfile --adapter caddyfile
+   ```
+
+`http://` makes Caddy serve plain HTTP on :80 with **no auto-HTTPS redirect** — pair it
+with **Cloudflare proxied DNS + SSL mode "Flexible"** so visitors still get HTTPS while
+the origin stays on port 80. (Serving `https://` / Full mode instead makes Caddy fetch a
+cert — see §4 and §9.) Always `validate` before `reload` so a typo can't take the proxy —
+and its other sites — down.
+
+nginx equivalent: a `server { server_name notey.example.com; location / { proxy_pass
+http://127.0.0.1:8080; } }` block, with notey published on `127.0.0.1:8080`.
+
+**Real client IPs:** behind a proxy, forward `X-Forwarded-For` (Caddy does by default;
+behind Cloudflare also honour `CF-Connecting-IP` via `trusted_proxies`) so notey's rate
+limits see visitors, not the proxy.
+
+## Updating a deployment
+
+```bash
+./scripts/redeploy.sh                                  # rebuild + restart the container
+NOTEY_PORT_PUBLISH=80 ./scripts/redeploy.sh            # standalone, publish on :80
+NOTEY_NETWORK=chatwoot_default ./scripts/redeploy.sh   # behind an existing proxy
+```
+
+Pulls latest, rebuilds the image, recreates the `notey` container. Notes persist in the
+`notey-data` volume.
+
 ## Vercel / serverless — why it's not supported (yet)
 
 Serverless functions have an **ephemeral, read-only filesystem**, so notes written by
