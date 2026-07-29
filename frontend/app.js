@@ -110,13 +110,15 @@
     constructor(props) {
       super(props);
       this.state = {
-        slug: slugFromLocation(), theme: "dark", text: "", preview: false,
+        slug: slugFromLocation(), theme: "dark", text: "", preview: false, wide: false, lines: true,
         lockOpen: false, copied: false, saved: SaveLabel.LOADING,
         phase: "loading", locked: false, password: null,
         pwInput: "", gateInput: "", gateError: "",
-        narrow: window.innerWidth < 720,
+        narrow: window.innerWidth < 720, lineHeights: [],
       };
       this._t = null;
+      this.gutterRef = React.createRef();
+      this.mirrorRef = React.createRef();
       this._onResize = () => this.setState({ narrow: window.innerWidth < 720 });
     }
 
@@ -125,6 +127,21 @@
       this.ensureSlug().then(() => this.load());
     }
     componentWillUnmount() { window.removeEventListener("resize", this._onResize); }
+
+    // After each render, measure how tall each logical line renders (wrapping included)
+    // via the hidden mirror, so the gutter can size each number cell to match.
+    componentDidUpdate() { this.measureLines(); }
+    measureLines() {
+      const m = this.mirrorRef.current;
+      if (!m) return;
+      const kids = m.children;
+      const hs = [];
+      for (let i = 0; i < kids.length; i++) hs.push(kids[i].offsetHeight);
+      const cur = this.state.lineHeights;
+      let same = hs.length === cur.length;
+      for (let i = 0; same && i < hs.length; i++) same = hs[i] === cur[i];
+      if (!same) this.setState({ lineHeights: hs });
+    }
 
     async ensureSlug() {
       if (this.state.slug) return;
@@ -198,6 +215,8 @@
           h("div", { style: { display: "flex", alignItems: "center", gap: 7, paddingRight: 10, marginRight: 6, borderRight: "1px solid var(--np-line)", fontSize: 12, color: "var(--np-muted)" } },
             h("span", { style: { width: 6, height: 6, borderRadius: 999, background: "var(--np-accent)", animation: "np-pulse 2.4s ease-in-out infinite" } }),
             h("span", null, s.saved)),
+          (!s.preview && !s.narrow) ? this.iconButton(s.lines ? "Hide line numbers" : "Show line numbers", () => this.setState({ lines: !s.lines }), this.linesGlyph(), s.lines ? "Lines on" : "Lines") : null,
+          (!s.preview && !s.narrow) ? this.iconButton(s.wide ? "Center the column" : "Use full width", () => this.setState({ wide: !s.wide }), this.wideGlyph(), s.wide ? "Centered" : "Wide") : null,
           this.iconButton("Markdown preview", () => this.setState({ preview: !s.preview }), this.previewGlyph(), s.preview ? "Editing + preview" : "Preview"),
           this.iconButton("Password protect", () => this.setState({ lockOpen: !s.lockOpen, pwInput: "" }), this.lockGlyph(16)),
           this.iconButton("Light / dark", () => this.setState({ theme: s.theme === "dark" ? "light" : "dark" }), themeIcon(s.theme))));
@@ -210,6 +229,8 @@
 
     lockGlyph(size) { return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: size, height: size }, h("path", { d: "M208 80h-28V56a52 52 0 0 0-104 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM92 56a36 36 0 0 1 72 0v24H92Zm44 128.6V200a8 8 0 0 1-16 0v-15.4a20 20 0 1 1 16 0Z" })); }
     previewGlyph() { return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: 15, height: 15 }, h("path", { d: "M224 56H32a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V72a16 16 0 0 0-16-16ZM72 168v-48l24 24 24-24v48h-16v-20l-8 8-8-8v20Zm112-16 24-32h-16V96h-16v24h-16Z" })); }
+    wideGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("polyline", { points: "8 7 3 12 8 17" }), h("polyline", { points: "16 7 21 12 16 17" }), h("line", { x1: 3, y1: 12, x2: 21, y2: 12 })); }
+    linesGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("line", { x1: 4, y1: 4, x2: 4, y2: 20 }), h("line", { x1: 9, y1: 7, x2: 20, y2: 7 }), h("line", { x1: 9, y1: 12, x2: 20, y2: 12 }), h("line", { x1: 9, y1: 17, x2: 20, y2: 17 })); }
 
     renderLockPanel() {
       const locked = this.state.locked;
@@ -226,12 +247,53 @@
     renderMain() {
       const s = this.state;
       const n = s.narrow;
-      const pad = n ? "24px 18px 60px" : "44px 32px 80px";
-      return h("main", { style: { flex: "1 1 auto", display: "flex", flexDirection: n ? "column" : "row", minHeight: 0, justifyContent: "center" } },
-        h("div", { style: { flex: "1 1 0", display: "flex", justifyContent: "center", minWidth: 0, minHeight: 0, overflow: "auto" } },
-          h("textarea", { value: s.text, onChange: (e) => this.onType(e.target.value), spellCheck: false, placeholder: "Start typing. It saves itself.", style: { width: "100%", maxWidth: 760, boxSizing: "border-box", padding: pad, border: "none", outline: "none", resize: "none", background: "transparent", color: "var(--np-text)", caretColor: "var(--np-accent)", fontFamily: "'JetBrains Mono', monospace", fontSize: 15, lineHeight: 1.85, letterSpacing: "-0.01em", tabSize: 2 } })),
-        s.preview ? h("div", { style: { flex: "1 1 0", minWidth: 0, minHeight: 0, overflow: "auto", borderLeft: n ? "none" : "1px solid var(--np-line)", borderTop: n ? "1px solid var(--np-line)" : "none", background: "var(--np-surface)" } },
-          h("div", { style: { maxWidth: 700, padding: n ? "24px 18px 60px" : "44px 40px 80px", fontSize: 15, lineHeight: 1.7 } }, renderMd(s.text))) : null);
+      const wide = s.wide && !n;
+      const typo = { border: "none", outline: "none", resize: "none", color: "var(--np-text)", caretColor: "var(--np-accent)", fontFamily: "'JetBrains Mono', monospace", fontSize: 15, lineHeight: 1.85, letterSpacing: "-0.01em", tabSize: 2 };
+      if (s.preview) return this.renderSplit(n, typo);
+      return h("main", { style: { flex: "1 1 auto", display: "flex", minHeight: 0, justifyContent: "center", overflow: "hidden" } },
+        this.editorBlock(typo, { sheet: !wide, maxWidth: wide ? null : 1080 }));
+    }
+
+    renderSplit(n, typo) {
+      const s = this.state;
+      const padY = n ? "26px" : "48px";
+      const padX = n ? "18px" : "clamp(22px, 2.5vw, 44px)";
+      const padBot = n ? "60px" : "96px";
+      return h("main", { style: { flex: "1 1 auto", display: "flex", flexDirection: n ? "column" : "row", minHeight: 0 } },
+        h("div", { style: { flex: "1 1 0", minWidth: 0, minHeight: 0, display: "flex", overflow: "hidden" } },
+          this.editorBlock(typo, { sheet: false, maxWidth: null, padX })),
+        h("div", { className: "np-scroll", style: { flex: "1 1 0", minWidth: 0, minHeight: 0, overflowY: "auto", borderLeft: n ? "none" : "1px solid var(--np-line)", borderTop: n ? "1px solid var(--np-line)" : "none", background: "var(--np-surface)" } },
+          h("div", { style: { padding: `${padY} ${padX} ${padBot}`, fontSize: 15, lineHeight: 1.7 } }, renderMd(s.text))));
+    }
+
+    // Reusable editor column with an optional synced line-number gutter. Line-numbers
+    // mode is no-wrap so each logical line is one row and the numbers stay aligned.
+    editorBlock(typo, opts) {
+      const s = this.state;
+      const n = s.narrow;
+      const lines = s.lines && !n;
+      const mw = opts.maxWidth;
+      const padY = n ? "26px" : "48px";
+      const padBot = n ? "60px" : "96px";
+      const padX = opts.padX || (n ? "18px" : "clamp(28px, 5vw, 80px)");
+      const common = { width: "100%", maxWidth: mw || "100%", height: "100%", margin: mw ? "0 auto" : undefined, boxSizing: "border-box" };
+      if (!lines) {
+        return h("textarea", { className: "np-scroll" + (opts.sheet ? " np-sheet" : ""), value: s.text, onChange: (e) => this.onType(e.target.value), spellCheck: false, placeholder: "Start typing. It saves itself.",
+          style: { ...typo, ...common, padding: `${padY} ${padX} ${padBot}`, overflowY: "auto", background: opts.sheet ? undefined : "transparent" } });
+      }
+      const linesArr = s.text.split("\n");
+      const font = { fontFamily: "'JetBrains Mono', monospace", fontSize: 15, lineHeight: 1.85, letterSpacing: "-0.01em", tabSize: 2 };
+      const boxPad = `48px ${opts.padX || "clamp(20px, 4vw, 64px)"} 96px 16px`;
+      const wrapText = { whiteSpace: "pre-wrap", overflowWrap: "anywhere", wordBreak: "break-word" };
+      const cells = linesArr.map((ln, i) => h("div", { key: i, style: { height: this.state.lineHeights[i] ? this.state.lineHeights[i] + "px" : undefined, overflow: "hidden" } }, i + 1));
+      const mlines = linesArr.map((ln, i) => h("div", { key: i }, ln === "" ? "​" : ln));
+      const syncScroll = (e) => { if (this.gutterRef.current) this.gutterRef.current.scrollTop = e.target.scrollTop; };
+      return h("div", { className: opts.sheet ? "np-sheet" : "", style: { ...common, display: "flex", overflow: "hidden" } },
+        h("div", { ref: this.gutterRef, style: { ...font, flex: "0 0 auto", overflow: "hidden", padding: "48px 12px 96px 20px", textAlign: "right", color: "var(--np-faint)", userSelect: "none", borderRight: "1px solid var(--np-line)" } }, cells),
+        h("div", { style: { flex: "1 1 0", minWidth: 0, position: "relative", overflow: "hidden" } },
+          h("div", { ref: this.mirrorRef, "aria-hidden": "true", style: { ...font, ...wrapText, position: "absolute", top: 0, left: 0, right: 0, padding: boxPad, visibility: "hidden", pointerEvents: "none", boxSizing: "border-box" } }, mlines),
+          h("textarea", { className: "np-scroll", value: s.text, onChange: (e) => this.onType(e.target.value), onScroll: syncScroll, spellCheck: false, placeholder: "Start typing. It saves itself.",
+            style: { ...typo, ...wrapText, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", padding: boxPad, overflow: "auto", background: "transparent", boxSizing: "border-box" } })));
     }
 
     renderFooter() {
