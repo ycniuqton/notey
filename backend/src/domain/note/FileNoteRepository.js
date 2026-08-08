@@ -28,6 +28,15 @@ export class FileNoteRepository extends NoteRepository {
     return record;
   }
 
+  async remove(notePath) {
+    const file = notePath.toFile(this.storeRoot);
+    try {
+      await fs.unlink(file);
+    } catch (err) {
+      if (err.code !== FileNoteRepository.#NOT_FOUND) throw err;
+    }
+  }
+
   async count(cap) {
     return this.#countDir(this.storeRoot, cap);
   }

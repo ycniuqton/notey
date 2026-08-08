@@ -15,15 +15,35 @@
   };
   const SAVE_DEBOUNCE_MS = 700;
 
+  // ---- Note lifetime (TTL) choices. Tokens must match the backend Ttl domain. ----
+  const TTL_FOREVER = "forever";
+  const TTL_OPTIONS = [
+    { value: TTL_FOREVER, label: "Keep forever" },
+    { value: "1h", label: "Delete in 1 hour" },
+    { value: "1d", label: "Delete in 1 day" },
+    { value: "7d", label: "Delete in 1 week" },
+    { value: "30d", label: "Delete in 1 month" },
+  ];
+  // Compact "time from now" label for a future ISO instant (e.g. "3h", "5d").
+  function relFromNow(iso) {
+    const ms = Date.parse(iso) - Date.now();
+    if (!(ms > 0)) return "now";
+    const mins = Math.round(ms / 60000);
+    if (mins < 60) return mins + "m";
+    const hrs = Math.round(mins / 60);
+    if (hrs < 48) return hrs + "h";
+    return Math.round(hrs / 24) + "d";
+  }
+
   // ---- API client: talks to the backend note routes on the same origin ----
   const NoteApi = {
     path(slug) { return "/api/note/" + slug.split("/").map(encodeURIComponent).join("/"); },
     async read(slug) { return (await fetch(this.path(slug))).json(); },
-    async save(slug, content, password) {
+    async save(slug, content, password, ttl) {
       const res = await fetch(this.path(slug), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, password: password ?? undefined }),
+        body: JSON.stringify({ content, password: password ?? undefined, ttl: ttl ?? undefined }),
       });
       return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
     },
@@ -97,12 +117,12 @@
     return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: 16, height: 16 }, h("path", { d: theme === "dark" ? dark : light }));
   }
 
-  window.__notey = { h, SaveLabel, SAVE_DEBOUNCE_MS, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon };
+  window.__notey = { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon };
 })();
 
 (function () {
   "use strict";
-  const { h, SaveLabel, SAVE_DEBOUNCE_MS, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon } = window.__notey;
+  const { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon } = window.__notey;
 
   // Root component. Loads the note for the current URL, autosaves edits, and drives
   // the theme / preview / lock interactions ported from the design.
@@ -114,6 +134,7 @@
         lockOpen: false, copied: false, saved: SaveLabel.LOADING,
         phase: "loading", locked: false, password: null,
         pwInput: "", gateInput: "", gateError: "",
+        ttl: null, expiresAt: null,
         narrow: window.innerWidth < 720, lineHeights: [],
       };
       this._t = null;
@@ -152,10 +173,11 @@
 
     async load() {
       const data = await NoteApi.read(this.state.slug);
-      if (data.locked) return this.setState({ phase: "gate", locked: true, saved: SaveLabel.LOCKED });
+      if (data.locked) return this.setState({ phase: "gate", locked: true, saved: SaveLabel.LOCKED, expiresAt: data.expiresAt || null });
       this.setState({
         phase: "ready", locked: false, text: data.content || "",
         saved: data.exists ? SaveLabel.SAVED : SaveLabel.NEW,
+        expiresAt: data.expiresAt || null,
       });
     }
 
@@ -166,10 +188,29 @@
       this._t = setTimeout(() => this.save(), SAVE_DEBOUNCE_MS);
     }
     async save() {
-      const { slug, text, password } = this.state;
-      const res = await NoteApi.save(slug, text, password);
-      if (res.ok) return this.setState({ saved: SaveLabel.SAVED, locked: res.data.locked });
+      const { slug, text, password, ttl } = this.state;
+      const res = await NoteApi.save(slug, text, password, ttl);
+      if (res.ok) return this.setState({ saved: SaveLabel.SAVED, locked: res.data.locked, expiresAt: res.data.expiresAt || null });
       this.setState({ saved: res.status === 401 ? SaveLabel.LOCKED : SaveLabel.FAILED });
+    }
+
+    // Start a fresh note at a new random slug. Flush any pending edit first so the
+    // current note is not left half-saved, then hard-navigate to the new URL.
+    async newNote() {
+      clearTimeout(this._t);
+      if (this.state.phase === "ready" && this.state.text && this.state.saved !== SaveLabel.SAVED) {
+        try { await this.save(); } catch (e) { /* navigate regardless */ }
+      }
+      window.location.assign("/" + randomSlug());
+    }
+
+    // Apply a chosen lifetime immediately: remember it for future autosaves and
+    // persist right away so an untouched note still gets its expiry updated.
+    chooseTtl(value) {
+      this.setState({ ttl: value, saved: SaveLabel.SAVING }, () => {
+        clearTimeout(this._t);
+        this.save();
+      });
     }
 
     // ---- password gate (reading a locked note) ----
@@ -210,11 +251,13 @@
           h("span", { style: { display: "flex", width: 15, height: 15, color: "var(--np-faint)" } }, this.lockGlyph(15)),
           h("span", { style: { fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "var(--np-faint)", letterSpacing: "-0.01em" } }, "notey.space/"),
           h("span", { style: { fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, color: "var(--np-text)", letterSpacing: "-0.01em" } }, s.slug),
-          h("button", { type: "button", className: "np-btn np-copy", onClick: () => this.copyLink(), style: { display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4, padding: "3px 8px", font: "inherit", fontSize: 11, color: "var(--np-muted)", background: "transparent", border: "1px solid var(--np-line)", borderRadius: 999, cursor: "pointer" } }, s.copied ? "Link copied" : "Copy link")),
+          h("button", { type: "button", className: "np-btn np-copy", onClick: () => this.copyLink(), style: { display: "inline-flex", alignItems: "center", gap: 5, marginLeft: 4, padding: "3px 8px", font: "inherit", fontSize: 11, color: "var(--np-muted)", background: "transparent", border: "1px solid var(--np-line)", borderRadius: 999, cursor: "pointer" } }, s.copied ? "Link copied" : "Copy link"),
+          h("button", { type: "button", className: "np-btn np-copy", title: "Start a new note", onClick: () => this.newNote(), style: { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", font: "inherit", fontSize: 11, color: "var(--np-accent)", background: "transparent", border: "1px solid var(--np-accent)", borderRadius: 999, cursor: "pointer" } }, this.plusGlyph(), "New note")),
         h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
           h("div", { style: { display: "flex", alignItems: "center", gap: 7, paddingRight: 10, marginRight: 6, borderRight: "1px solid var(--np-line)", fontSize: 12, color: "var(--np-muted)" } },
             h("span", { style: { width: 6, height: 6, borderRadius: 999, background: "var(--np-accent)", animation: "np-pulse 2.4s ease-in-out infinite" } }),
             h("span", null, s.saved)),
+          this.ttlSelect(),
           (!s.preview && !s.narrow) ? this.iconButton(s.lines ? "Hide line numbers" : "Show line numbers", () => this.setState({ lines: !s.lines }), this.linesGlyph(), s.lines ? "Lines on" : "Lines") : null,
           (!s.preview && !s.narrow) ? this.iconButton(s.wide ? "Center the column" : "Use full width", () => this.setState({ wide: !s.wide }), this.wideGlyph(), s.wide ? "Centered" : "Wide") : null,
           this.iconButton("Markdown preview", () => this.setState({ preview: !s.preview }), this.previewGlyph(), s.preview ? "Editing + preview" : "Preview"),
@@ -228,6 +271,22 @@
     }
 
     lockGlyph(size) { return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: size, height: size }, h("path", { d: "M208 80h-28V56a52 52 0 0 0-104 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM92 56a36 36 0 0 1 72 0v24H92Zm44 128.6V200a8 8 0 0 1-16 0v-15.4a20 20 0 1 1 16 0Z" })); }
+    plusGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" }, h("line", { x1: 12, y1: 5, x2: 12, y2: 19 }), h("line", { x1: 5, y1: 12, x2: 19, y2: 12 })); }
+
+    // Lifetime picker. When the note has a pending expiry the user did not just set,
+    // surface it as the shown option so the control never misrepresents the note.
+    ttlSelect() {
+      const s = this.state;
+      const active = s.ttl !== null ? s.ttl : (s.expiresAt ? "__current" : TTL_FOREVER);
+      const opts = TTL_OPTIONS.map((o) => h("option", { key: o.value, value: o.value }, o.label));
+      if (s.ttl === null && s.expiresAt) opts.unshift(h("option", { key: "__current", value: "__current" }, "Deletes in " + relFromNow(s.expiresAt)));
+      const select = h("select", { title: "How long to keep this note", value: active, onChange: (e) => { if (e.target.value !== "__current") this.chooseTtl(e.target.value); },
+        className: "np-btn np-select", style: { height: 28, maxWidth: 160, padding: "0 26px 0 10px", font: "inherit", fontSize: 12, color: "var(--np-muted)", background: "transparent", border: "1px solid var(--np-line)", borderRadius: 8, cursor: "pointer", appearance: "none", WebkitAppearance: "none", MozAppearance: "none", textOverflow: "ellipsis" } }, opts);
+      const caret = h("span", { style: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", display: "flex", pointerEvents: "none", color: "var(--np-faint)" } }, this.caretGlyph());
+      return h("div", { style: { position: "relative", display: "inline-flex", alignItems: "center" } }, select, caret);
+    }
+
+    caretGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 12, height: 12, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("polyline", { points: "6 9 12 15 18 9" })); }
     previewGlyph() { return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: 15, height: 15 }, h("path", { d: "M224 56H32a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V72a16 16 0 0 0-16-16ZM72 168v-48l24 24 24-24v48h-16v-20l-8 8-8-8v20Zm112-16 24-32h-16V96h-16v24h-16Z" })); }
     wideGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("polyline", { points: "8 7 3 12 8 17" }), h("polyline", { points: "16 7 21 12 16 17" }), h("line", { x1: 3, y1: 12, x2: 21, y2: 12 })); }
     linesGlyph() { return h("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, h("line", { x1: 4, y1: 4, x2: 4, y2: 20 }), h("line", { x1: 9, y1: 7, x2: 20, y2: 7 }), h("line", { x1: 9, y1: 12, x2: 20, y2: 12 }), h("line", { x1: 9, y1: 17, x2: 20, y2: 17 })); }

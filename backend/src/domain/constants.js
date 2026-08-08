@@ -40,6 +40,28 @@ export class NoteField {
   static PASSWORD_HASH = "passwordHash";
   static CREATED_AT = "createdAt";
   static UPDATED_AT = "updatedAt";
+  static TTL = "ttl";
+  static EXPIRES_AT = "expiresAt";
+}
+
+// Note lifetime tokens the client may request. A token maps to a duration in ms;
+// FOREVER (or an unknown token) means no expiry. Absent ttl leaves expiry unchanged.
+export class Ttl {
+  static FOREVER = "forever";
+  static #DURATIONS = {
+    "1h": 3_600_000,
+    "1d": 86_400_000,
+    "7d": 604_800_000,
+    "30d": 2_592_000_000,
+  };
+
+  static isKnown(token) {
+    return token === Ttl.FOREVER || Object.prototype.hasOwnProperty.call(Ttl.#DURATIONS, token);
+  }
+
+  static durationMs(token) {
+    return Object.prototype.hasOwnProperty.call(Ttl.#DURATIONS, token) ? Ttl.#DURATIONS[token] : null;
+  }
 }
 
 export class ErrorCode {

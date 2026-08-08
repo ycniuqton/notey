@@ -9,6 +9,11 @@ export class NoteRepository {
     throw new Error("NoteRepository.save must be implemented by a subclass.");
   }
 
+  // Delete a note if present; a no-op when it does not exist.
+  async remove(notePath) {
+    throw new Error("NoteRepository.remove must be implemented by a subclass.");
+  }
+
   // Count stored notes, stopping early once `cap` is reached (cheap abuse check).
   async count(cap) {
     throw new Error("NoteRepository.count must be implemented by a subclass.");

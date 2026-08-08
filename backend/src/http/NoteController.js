@@ -48,7 +48,7 @@ export class NoteController {
     this.writeLimiter.assertAllowed(ctx.clientIp);
     this.writeLimiter.record(ctx.clientIp);
     const body = await ctx.readJson();
-    const view = await this.noteManager.save(notePath, body[NoteField.CONTENT], body[NoteField.PASSWORD]);
+    const view = await this.noteManager.save(notePath, body[NoteField.CONTENT], body[NoteField.PASSWORD], body[NoteField.TTL]);
     ctx.sendJson(HttpStatus.OK, { slug: notePath.slug, ...view });
   }
 

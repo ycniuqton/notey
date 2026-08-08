@@ -39,3 +39,10 @@ textarea::placeholder { color: var(--np-faint); }
 .np-btn { transition: color .15s, border-color .15s, background .15s; }
 .np-icon-btn:hover { background: var(--np-surface); color: var(--np-text); }
 .np-copy:hover { color: var(--np-accent); border-color: var(--np-accent); }
+
+/* Themed lifetime dropdown: ghost control that fills on hover like the icon buttons.
+   Native chrome is removed; a caret is overlaid by the component. */
+.np-select { transition: color .15s, border-color .15s, background .15s; }
+.np-select:hover { background: var(--np-surface); color: var(--np-text); border-color: var(--np-faint); }
+.np-select:focus-visible { outline: none; border-color: var(--np-accent); color: var(--np-text); }
+.np-select option { color: var(--np-text); background: var(--np-surface); }
