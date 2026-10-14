@@ -11,6 +11,8 @@
   "scripts": {
     "start": "node backend/src/server.js",
     "dev": "node --watch backend/src/server.js",
+    "honeypot:seed": "node scripts/seed-honeypot.js",
+    "honeypot:clean": "node scripts/seed-honeypot.js --clean",
     "setup": "sh scripts/setup.sh",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop notey",

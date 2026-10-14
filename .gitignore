@@ -10,6 +10,9 @@ node_modules/
 note-store/*
 !note-store/.gitkeep
 
+# honeypot seed manifest — the map of which notes are decoys; never commit it
+.honeypot-manifest.json
+
 # logs & process managers
 *.log
 logs/
