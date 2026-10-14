@@ -5,6 +5,13 @@ export class Rng {
     this.state = (seed >>> 0) || 1;
   }
 
+  // A fresh, independent stream for note `index` under master `seed`. Deriving per
+  // note (not one shared stream) makes every note a pure function of (seed, index),
+  // so a run is reproducible — and reversible — without any on-disk manifest.
+  static forNote(seed, index) {
+    return new Rng((((seed >>> 0) ^ Math.imul(index + 1, 2654435761)) >>> 0) || 1);
+  }
+
   // Next float in [0, 1).
   next() {
     this.state |= 0;

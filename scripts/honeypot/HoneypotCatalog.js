@@ -59,6 +59,22 @@ export class HoneypotCatalog {
   };
 }
 
+// The default note-name generator, mirrored EXACTLY from frontend/app.js
+// (randomSlug: WORDS_A-WORDS_B-NNN, NNN in 100..999). Honeypots must live in this
+// same 90k-slug space to be indistinguishable from real default notes.
+// KEEP IN SYNC with frontend/app.js if those word lists ever change.
+export class What3Words {
+  static WORDS_A = ["quiet", "amber", "misty", "brave", "lunar", "swift", "wild", "calm", "solar", "north"];
+  static WORDS_B = ["harbor", "meadow", "cipher", "ember", "willow", "signal", "pebble", "canyon", "orbit", "delta"];
+  static NUM_MIN = 100;
+  static NUM_MAX = 999;
+
+  // Size of the whole default-note namespace — the ceiling on distinct w3w decoys.
+  static space() {
+    return What3Words.WORDS_A.length * What3Words.WORDS_B.length * (What3Words.NUM_MAX - What3Words.NUM_MIN + 1);
+  }
+}
+
 // Builders for realistic-but-fake credential strings. Every value is random and
 // non-functional; these are decoys, never real secrets.
 export class FakeSecret {
