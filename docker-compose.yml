@@ -1,6 +1,15 @@
-# notey — run with:  docker compose up -d --build
-# Expose publicly (no port-forward) with a Cloudflare Tunnel:
-#   CLOUDFLARE_TUNNEL_TOKEN=... docker compose --profile tunnel up -d
+# notey — production compose.
+# Fronted by the existing Caddy reverse proxy (on the `chatwoot_default` network);
+# notes persisted in the external `notey-data` volume. Redeploy with:
+#   docker compose up -d --build        (and `docker compose down` to stop)
+# Both keep the volume AND the network, so notes survive and Caddy keeps reaching
+# notey by name — no more "wrong volume / 502" surprises.
+#
+# This expects two pre-existing resources on the host:
+#   - network  chatwoot_default   (the Caddy reverse-proxy network)
+#   - volume   notey-data         (your notes)
+# For a standalone/local run without those, drop the two `external: true` blocks
+# and use plain `volumes: [notey-data:/data]` + a published port.
 services:
   notey:
     build: .
@@ -8,28 +17,22 @@ services:
     container_name: notey
     restart: unless-stopped
     ports:
-      - "${NOTEY_PORT:-8080}:8080"
+      - "8080:8080"
     environment:
       NOTEY_HOST: "0.0.0.0"
       NOTEY_PORT: "8080"
       NOTEY_STORE: "/data"
     volumes:
-      - notey-data:/data
+      - data:/data
+    networks:
+      - caddy
 
-  # Optional: publish notey to a public hostname via Cloudflare Tunnel.
-  # In the Zero Trust dashboard, point the tunnel's public hostname at
-  # the service URL  http://notey:8080  (this container, on the compose network).
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: notey-tunnel
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
-    depends_on:
-      - notey
-    profiles:
-      - tunnel
+networks:
+  caddy:
+    external: true
+    name: chatwoot_default
 
 volumes:
-  notey-data:
+  data:
+    external: true
+    name: notey-data
