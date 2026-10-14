@@ -68,6 +68,19 @@
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
     return pick(WORDS_A) + "-" + pick(WORDS_B) + "-" + Math.floor(100 + Math.random() * 900);
   }
+  // Pick a random slug not already taken, so a fresh note never opens an existing
+  // note (another user's, or a decoy). Falls back to a plain random slug if unlucky.
+  async function freshSlug(tries = 6) {
+    for (let i = 0; i < tries; i++) {
+      const slug = randomSlug();
+      try {
+        if (!(await NoteApi.read(slug)).exists) return slug;
+      } catch (e) {
+        return slug;
+      }
+    }
+    return randomSlug();
+  }
   function slugFromLocation() {
     return window.location.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
   }
@@ -117,12 +130,12 @@
     return h("svg", { viewBox: "0 0 256 256", fill: "currentColor", width: 16, height: 16 }, h("path", { d: theme === "dark" ? dark : light }));
   }
 
-  window.__notey = { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon };
+  window.__notey = { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, freshSlug, slugFromLocation, renderMd, themeIcon };
 })();
 
 (function () {
   "use strict";
-  const { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, slugFromLocation, renderMd, themeIcon } = window.__notey;
+  const { h, SaveLabel, SAVE_DEBOUNCE_MS, TTL_FOREVER, TTL_OPTIONS, relFromNow, NoteApi, randomSlug, freshSlug, slugFromLocation, renderMd, themeIcon } = window.__notey;
 
   // Root component. Loads the note for the current URL, autosaves edits, and drives
   // the theme / preview / lock interactions ported from the design.
@@ -166,7 +179,7 @@
 
     async ensureSlug() {
       if (this.state.slug) return;
-      const slug = randomSlug();
+      const slug = await freshSlug();
       window.history.replaceState(null, "", "/" + slug);
       await new Promise((r) => this.setState({ slug }, r));
     }
@@ -201,7 +214,7 @@
       if (this.state.phase === "ready" && this.state.text && this.state.saved !== SaveLabel.SAVED) {
         try { await this.save(); } catch (e) { /* navigate regardless */ }
       }
-      window.location.assign("/" + randomSlug());
+      window.location.assign("/" + (await freshSlug()));
     }
 
     // Apply a chosen lifetime immediately: remember it for future autosaves and
