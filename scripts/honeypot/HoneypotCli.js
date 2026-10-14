@@ -119,7 +119,7 @@ export class HoneypotCli {
     this.#log([
       "notey honeypot seeder — plant decoys that blend into the default note namespace.",
       "",
-      `The default-note space is ${What3Words.space().toLocaleString()} slugs (wordA-wordB-NNN, mirrored from the`,
+      `The default-note space is ${What3Words.space().toLocaleString()} slugs (3 BIP39 words, mirrored from the`,
       "frontend). Decoys live there too, so they are indistinguishable from real notes.",
       "No manifest or marker is ever written — the --seed is the only key to a run.",
       "",

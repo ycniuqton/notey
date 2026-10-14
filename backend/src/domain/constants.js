@@ -79,7 +79,8 @@ export class Limit {
   static MAX_SEGMENT_LENGTH = 63;
   static MAX_CONTENT_BYTES = 1_000_000; // 1 MB per note
   static MAX_BODY_BYTES = 1_200_000;    // request body ceiling
-  static MAX_NOTES = 20_000;            // total notes on disk (abuse cap)
+  static MAX_NOTES = 5_000_000;         // total notes on disk (abuse cap); raised to
+                                        // hold real notes + a dense honeypot field
 }
 
 // Rate-limit policies. maxHits within windowMs; exceeding blocks for blockMs.

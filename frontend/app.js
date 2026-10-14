@@ -62,11 +62,13 @@
   };
 
   // ---- Slug helpers: the URL path IS the note ----
-  const WORDS_A = ["quiet", "amber", "misty", "brave", "lunar", "swift", "wild", "calm", "solar", "north"];
-  const WORDS_B = ["harbor", "meadow", "cipher", "ember", "willow", "signal", "pebble", "canyon", "orbit", "delta"];
+  // Random note name = 3 words from the BIP39 list (window.NOTEY_BIP39, loaded by
+  // /bip39.js). 2048^3 ≈ 8.6 billion combinations, so "new note" effectively never
+  // collides. A tiny fallback keeps things working if the list failed to load.
+  const WORDS = (typeof window !== "undefined" && window.NOTEY_BIP39) || ["quiet", "amber", "misty", "lunar", "swift", "harbor", "meadow", "cipher", "ember", "orbit"];
   function randomSlug() {
-    const pick = (a) => a[Math.floor(Math.random() * a.length)];
-    return pick(WORDS_A) + "-" + pick(WORDS_B) + "-" + Math.floor(100 + Math.random() * 900);
+    const pick = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+    return pick() + "-" + pick() + "-" + pick();
   }
   // Pick a random slug not already taken, so a fresh note never opens an existing
   // note (another user's, or a decoy). Falls back to a plain random slug if unlucky.

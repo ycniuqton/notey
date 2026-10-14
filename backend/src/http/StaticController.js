@@ -11,6 +11,7 @@ export class StaticController {
     ["/", { file: "index.html", type: ContentType.HTML }],
     ["/index.html", { file: "index.html", type: ContentType.HTML }],
     ["/app.js", { file: "app.js", type: ContentType.JS }],
+    ["/bip39.js", { file: "bip39.js", type: ContentType.JS }],
     ["/styles.css", { file: "styles.css", type: ContentType.CSS }],
   ]);
 

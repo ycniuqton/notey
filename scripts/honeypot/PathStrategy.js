@@ -1,5 +1,5 @@
 import { NotePath } from "../../backend/src/domain/note/NotePath.js";
-import { What3Words } from "./HoneypotCatalog.js";
+import { BIP39 } from "./bip39.js";
 
 // Chooses WHERE a decoy lives. Base class so path styles are swappable without the
 // factory knowing which one it got (devlens Rule 13/15).
@@ -9,13 +9,11 @@ export class PathStrategy {
   }
 }
 
-// Default-note style: wordA-wordB-NNN, identical to the frontend generator. This is
-// the namespace a scanner actually enumerates, so most decoys belong here.
+// Default-note style: three BIP39 words (word-word-word), identical to the frontend
+// generator. Most decoys belong here — it is the space real default notes occupy.
 export class What3WordsPathStrategy extends PathStrategy {
   slug(rng) {
-    const a = rng.pick(What3Words.WORDS_A);
-    const b = rng.pick(What3Words.WORDS_B);
-    return `${a}-${b}-${rng.int(What3Words.NUM_MIN, What3Words.NUM_MAX)}`;
+    return `${rng.pick(BIP39)}-${rng.pick(BIP39)}-${rng.pick(BIP39)}`;
   }
 }
 
